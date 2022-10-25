@@ -33,16 +33,12 @@ Help Options:
 ## Examples
 
 ```bash
-% ./sacloud-router-usage --prefix example- --zone tk1b --zone is1b 
-2022/10/25 10:57:25 example-r1 zone:tk1b traffic:0.000000 time:2022-10-25 10:45:00 +0900 JST
-2022/10/25 10:57:25 example-r1 zone:tk1b traffic:0.000000 time:2022-10-25 10:50:00 +0900 JST
-2022/10/25 10:57:25 example-r1 zone:tk1b traffic:0.000000 time:2022-10-25 10:55:00 +0900 JST
-2022/10/25 10:57:25 example-r1 average_traffic:0.000000
-2022/10/25 10:57:25 example-r2 zone:is1b traffic:0.000000 time:2022-10-25 10:40:00 +0900 JST
-2022/10/25 10:57:25 example-r2 zone:is1b traffic:0.000000 time:2022-10-25 10:45:00 +0900 JST
-2022/10/25 10:57:25 example-r2 zone:is1b traffic:0.000000 time:2022-10-25 10:50:00 +0900 JST
-2022/10/25 10:57:25 example-r2 average_traffic:0.000000
-{"75pt":0,"90pt":0,"95pt":0,"99pt":0,"avg":0,"max":0,"min":0,"routers":[{"avg":0,"monitors":[{"time":"2022-10-25 10:45:00 +0900 JST","traffic":0},{"time":"2022-10-25 10:50:00 +0900 JST","traffic":0},{"time":"2022-10-25 10:55:00 +0900 JST","traffic":0}],"name":"example-r1","zone":"tk1b"},{"avg":0,"monitors":[{"time":"2022-10-25 10:40:00 +0900 JST","traffic":0},{"time":"2022-10-25 10:45:00 +0900 JST","traffic":0},{"time":"2022-10-25 10:50:00 +0900 JST","traffic":0}],"name":"example-r2","zone":"is1b"}]}
+% ./sacloud-router-usage --prefix example- --item out  --zone tk1b 
+2022/10/25 12:02:06 example-r1 zone:tk1b traffic:5305794.000000 time:2022-10-25 11:50:00 +0900 JST
+2022/10/25 12:02:06 example-r1 zone:tk1b traffic:5305794.000000 time:2022-10-25 11:55:00 +0900 JST
+2022/10/25 12:02:06 example-r1 zone:tk1b traffic:0.000000 time:2022-10-25 12:00:00 +0900 JST
+2022/10/25 12:02:06 example-r1 average_traffic:3537196.000000
+{"75pt":3537196,"90pt":3537196,"95pt":3537196,"99pt":3537196,"avg":3537196,"max":3537196,"min":3537196,"routers":[{"avg":3537196,"monitors":[{"time":"2022-10-25 11:50:00 +0900 JST","traffic":5305794},{"time":"2022-10-25 11:55:00 +0900 JST","traffic":5305794},{"time":"2022-10-25 12:00:00 +0900 JST","traffic":0}],"name":"example-r1","zone":"tk1b"}]}
 ```
 
 ## License

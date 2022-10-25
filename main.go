@@ -168,7 +168,7 @@ func fetchMetrics(opts commandOpts, ss []*IaaSRouter) (map[string]interface{}, e
 			log.Printf("%s zone:%s traffic:%f time:%s", t.Name, t.Zone, v, p.GetTime().String())
 			sum += v
 		}
-		avg := sum * 100 / float64(len(usages))
+		avg := sum / float64(len(usages))
 		log.Printf("%s average_traffic:%f", t.Name, avg)
 		fs = append(fs, avg)
 		total += avg
