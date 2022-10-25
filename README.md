@@ -1,21 +1,42 @@
-# sacloud/go-template
+# sacloud/sacloud-router-usage
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/sacloud/go-template.svg)](https://pkg.go.dev/github.com/sacloud/go-template)
-[![Tests](https://github.com/sacloud/go-template/workflows/Tests/badge.svg)](https://github.com/sacloud/go-template/actions/workflows/tests.yaml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/sacloud/go-template)](https://goreportcard.com/report/github.com/sacloud/go-template)
+[![Go Reference](https://pkg.go.dev/badge/github.com/sacloud/sacloud-router-usage.svg)](https://pkg.go.dev/github.com/sacloud/sacloud-router-usage)
+[![Tests](https://github.com/sacloud/sacloud-router-usage/workflows/Tests/badge.svg)](https://github.com/sacloud/sacloud-router-usage/actions/workflows/tests.yaml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/sacloud/sacloud-router-usage)](https://goreportcard.com/report/github.com/sacloud/sacloud-router-usage)
 
-さくらのクラウド向けOSSプロダクトでのプロジェクトテンプレート(Go)
+[sacloud/sacloud-cpu-usage](https://github.com/sacloud/sacloud-cpu-usage)のルータ+スイッチ版
 
 ## 概要
 
-さくらのクラウド向けOSSプロダクトでGo言語を中心に用いるプロジェクトのためのテンプレート
+スイッチ+ルータの使用状況をさくらのクラウドAPI経由で取得しMax/Min/Averageを算出します。
 
-### DockerイメージをGitHub Container Registryで公開する際の注意点
+## Usage
 
-初回のみ手作業で公開する必要があります。オーガニゼーション管理者にご相談ください。
+```bash
+Usage:
+  sacloud-router-usage [OPTIONS]
+
+Application Options:
+      --time=           Get average usage for a specified amount of time (default: 3)
+      --prefix=         Prefix for router names. prefix accepts more than one.
+      --zone=           Zone name
+      --percentile-set= Percentiles to dispaly (default: 99,95,90,75)
+  -v, --version         Show version
+      --query=          jq style query to result and display
+      --env-from=       Load envrionment values from this file
+
+Help Options:
+  -h, --help            Show this help message
+```
+
+## Examples
+
+```bash
+# TODO
+```
 
 ## License
 
-`go-template` Copyright (C) 2022 The sacloud/go-template authors.
+`sacloud-router-usage` Copyright (C) 2022 The sacloud/sacloud-router-usage authors.
 
-This project is published under [Apache 2.0 License](LICENSE).
+This project is published under [MIT](LICENSE).

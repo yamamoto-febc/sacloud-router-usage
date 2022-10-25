@@ -1,4 +1,4 @@
-# Copyright 2022 The sacloud/go-template Authors
+# Copyright 2022 The sacloud/sacloud-router-usage Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@ RUN  apt-get update && apt-get -y install \
       && apt-get clean \
       && rm -rf /var/cache/apt/archives/* /var/lib/apt/lists/*
 
-ADD . /go/src/github.com/sacloud/go-template
-WORKDIR /go/src/github.com/sacloud/go-template
+ADD . /go/src/github.com/sacloud/sacloud-router-usage
+WORKDIR /go/src/github.com/sacloud/sacloud-router-usage
 ENV CGO_ENABLED 0
 RUN make tools build
 # ======
@@ -34,6 +34,6 @@ FROM alpine:3.15
 MAINTAINER Usacloud Authors <sacloud.users@gmail.com>
 
 RUN apk add --no-cache --update ca-certificates
-COPY --from=builder /go/src/github.com/sacloud/go-template/go-template /usr/bin/
+COPY --from=builder /go/src/github.com/sacloud/sacloud-router-usage/sacloud-router-usage /usr/bin/
 
-ENTRYPOINT ["/usr/bin/go-template"]
+ENTRYPOINT ["/usr/bin/sacloud-router-usage"]

@@ -1,4 +1,4 @@
-// Copyright 2022 The sacloud/go-template Authors
+// Copyright 2022 The sacloud/sacloud-router-usage Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 
 var (
 	// Version app version
-	Version = "0.0.0"
+	Version = "0.0.1-dev"
 	// Revision git commit short commit hash
 	Revision = "xxxxxx" // set on build time
 )
