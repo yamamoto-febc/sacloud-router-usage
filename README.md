@@ -17,13 +17,14 @@ Usage:
   sacloud-router-usage [OPTIONS]
 
 Application Options:
-      --time=           Get average usage for a specified amount of time (default: 3)
-      --prefix=         Prefix for router names. prefix accepts more than one.
-      --zone=           Zone name
-      --percentile-set= Percentiles to dispaly (default: 99,95,90,75)
+      --time=           Get average traffic for a specified amount of time (default: 3)
+      --item=[in|out]   Item name (default: in)
+      --prefix=         prefix for router names. prefix accepts more than one.
+      --zone=           zone name
+      --percentile-set= percentiles to dispaly (default: 99,95,90,75)
   -v, --version         Show version
       --query=          jq style query to result and display
-      --env-from=       Load envrionment values from this file
+      --env-from=       load environment values from this file
 
 Help Options:
   -h, --help            Show this help message
