@@ -159,7 +159,7 @@ func fetchMetrics(opts commandOpts, ss []*IaaSRouter) (map[string]interface{}, e
 		sum := float64(0)
 		monitors := make([]interface{}, 0)
 		for _, p := range usages {
-			v := valueFn(p)
+			v := valueFn(p) / 1000 / 1000 // 単位変換: bps->Mbps
 			m := map[string]interface{}{
 				"traffic": v,
 				"time":    p.GetTime().String(),
