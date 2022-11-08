@@ -34,11 +34,11 @@ Help Options:
 
 ```bash
 % ./sacloud-router-usage --prefix example- --item out  --zone tk1b 
-2022/10/25 12:02:06 example-r1 zone:tk1b traffic:5305794.000000 time:2022-10-25 11:50:00 +0900 JST
-2022/10/25 12:02:06 example-r1 zone:tk1b traffic:5305794.000000 time:2022-10-25 11:55:00 +0900 JST
+2022/10/25 12:02:06 example-r1 zone:tk1b traffic:5.305794 time:2022-10-25 11:50:00 +0900 JST
+2022/10/25 12:02:06 example-r1 zone:tk1b traffic:5.305794 time:2022-10-25 11:55:00 +0900 JST
 2022/10/25 12:02:06 example-r1 zone:tk1b traffic:0.000000 time:2022-10-25 12:00:00 +0900 JST
-2022/10/25 12:02:06 example-r1 average_traffic:3537196.000000
-{"75pt":3537196,"90pt":3537196,"95pt":3537196,"99pt":3537196,"avg":3537196,"max":3537196,"min":3537196,"routers":[{"avg":3537196,"monitors":[{"time":"2022-10-25 11:50:00 +0900 JST","traffic":5305794},{"time":"2022-10-25 11:55:00 +0900 JST","traffic":5305794},{"time":"2022-10-25 12:00:00 +0900 JST","traffic":0}],"name":"example-r1","zone":"tk1b"}]}
+2022/10/25 12:02:06 example-r1 average_traffic:3.537196
+{"75pt":3.537196,"90pt":3.537196,"95pt":3.537196,"99pt":3.537196,"avg":3.537196,"max":3.537196,"min":3.537196,"routers":[{"avg":3.537196,"monitors":[{"time":"2022-10-25 11:50:00 +0900 JST","traffic":5.305794},{"time":"2022-10-25 11:55:00 +0900 JST","traffic":5.305794},{"time":"2022-10-25 12:00:00 +0900 JST","traffic":0}],"name":"example-r1","zone":"tk1b"}]}
 ```
 
 ## License
