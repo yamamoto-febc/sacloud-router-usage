@@ -22,6 +22,6 @@ require (
 	github.com/sacloud/go-http v0.1.3 // indirect
 	github.com/sacloud/packages-go v0.0.6 // indirect
 	go.uber.org/ratelimit v0.2.0 // indirect
-	golang.org/x/crypto v0.0.0-20220214200702-86341886e292 // indirect
-	golang.org/x/sys v0.0.0-20220908164124-27713097b956 // indirect
+	golang.org/x/crypto v0.1.0 // indirect
+	golang.org/x/sys v0.1.0 // indirect
 )
