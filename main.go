@@ -53,7 +53,6 @@ type commandOpts struct {
 	Version       bool     `short:"v" long:"version" description:"Show version"`
 	Query         string   `long:"query" description:"jq style query to result and display"`
 	EnvFrom       string   `long:"env-from" description:"load environment values from this file"`
-	client        iaas.InternetAPI
 	percentiles   []percentile
 }
 
@@ -94,7 +93,7 @@ type IaaSRouter struct {
 	Zone string
 }
 
-func findRouters(opts commandOpts) ([]*IaaSRouter, error) {
+func findRouters(client iaas.InternetAPI, opts *commandOpts) ([]*IaaSRouter, error) {
 	var routers []*IaaSRouter
 	for _, prefix := range opts.Prefix {
 		for _, zone := range opts.Zones {
@@ -102,7 +101,7 @@ func findRouters(opts commandOpts) ([]*IaaSRouter, error) {
 				Filter: map[search.FilterKey]interface{}{},
 			}
 			condition.Filter[search.Key("Name")] = search.PartialMatch(prefix)
-			result, err := opts.client.Find(
+			result, err := client.Find(
 				context.Background(),
 				zone,
 				condition,
@@ -120,7 +119,7 @@ func findRouters(opts commandOpts) ([]*IaaSRouter, error) {
 	return routers, nil
 }
 
-func fetchMetrics(opts commandOpts, ss []*IaaSRouter) (map[string]interface{}, error) {
+func fetchRouterMetrics(client iaas.InternetAPI, opts *commandOpts, ss []*IaaSRouter) (map[string]interface{}, error) {
 	b, _ := time.ParseDuration(fmt.Sprintf("-%dm", (opts.Time+3)*5))
 	condition := &iaas.MonitorCondition{
 		Start: time.Now().Add(b),
@@ -140,7 +139,7 @@ func fetchMetrics(opts commandOpts, ss []*IaaSRouter) (map[string]interface{}, e
 	routers := make([]interface{}, 0)
 	total := float64(0)
 	for _, t := range ss {
-		activity, err := opts.client.MonitorRouter(
+		activity, err := client.MonitorRouter(
 			context.Background(),
 			t.Zone,
 			t.ID,
@@ -221,17 +220,39 @@ func main() {
 }
 
 func _main() int {
-	opts := commandOpts{}
-	psr := flags.NewParser(&opts, flags.HelpFlag|flags.PassDoubleDash)
-	_, err := psr.Parse()
+	opts, err := parseOpts()
+	if err != nil {
+		log.Println(err)
+		return UNKNOWN
+	}
 	if opts.Version {
 		printVersion()
 		return OK
 	}
 
+	metrics, err := fetchMetrics(opts)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		log.Println(err)
 		return UNKNOWN
+	}
+
+	if err := outputMetrics(metrics, opts); err != nil {
+		log.Println(err)
+		return UNKNOWN
+	}
+	return OK
+}
+
+func parseOpts() (*commandOpts, error) {
+	opts := &commandOpts{}
+	psr := flags.NewParser(opts, flags.HelpFlag|flags.PassDoubleDash)
+	_, err := psr.Parse()
+	if opts.Version {
+		return opts, nil
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	if opts.Time < 1 {
@@ -240,80 +261,73 @@ func _main() int {
 
 	if opts.EnvFrom != "" {
 		if err := godotenv.Load(opts.EnvFrom); err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			return UNKNOWN
+			return nil, err
 		}
 	}
 
 	m := make(map[string]struct{})
 	for _, z := range opts.Zones {
 		if _, ok := m[z]; ok {
-			log.Printf("zone %q is duplicated", z)
-			return UNKNOWN
+			return nil, fmt.Errorf("zone %q is duplicated", z)
 		}
 		m[z] = struct{}{}
 	}
 
-	client, err := routerClient()
-	if err != nil {
-		log.Printf("%v", err)
-		return UNKNOWN
-	}
-	opts.client = client
-
-	percentiles := []percentile{}
+	var percentiles []percentile
 	percentileStrings := strings.Split(opts.PercentileSet, ",")
 	for _, s := range percentileStrings {
 		f, err := strconv.ParseFloat(s, 64)
 		if err != nil {
-			log.Printf("Could not parse --percentile-set: %v", err)
-			return UNKNOWN
+			return nil, fmt.Errorf("could not parse --percentile-set: %v", err)
 		}
 		f /= 100
 		percentiles = append(percentiles, percentile{s, f})
 	}
 	opts.percentiles = percentiles
 
-	routers, err := findRouters(opts)
+	return opts, nil
+}
+
+func fetchMetrics(opts *commandOpts) (map[string]interface{}, error) {
+	client, err := routerClient()
 	if err != nil {
-		log.Printf("%v", err)
-		return UNKNOWN
+		return nil, err
 	}
 
-	result, err := fetchMetrics(opts, routers)
+	routers, err := findRouters(client, opts)
 	if err != nil {
-		log.Printf("%v", err)
-		return UNKNOWN
+		return nil, err
 	}
 
-	j, _ := json.Marshal(result)
+	return fetchRouterMetrics(client, opts, routers)
+}
 
-	if opts.Query != "" {
-		query, err := gojq.Parse(opts.Query)
-		if err != nil {
-			log.Printf("%v", err)
-			return UNKNOWN
-		}
-		iter := query.Run(result)
-		for {
-			v, ok := iter.Next()
-			if !ok {
-				break
-			}
-			if err, ok := v.(error); ok {
-				log.Printf("%v", err)
-				return UNKNOWN
-			}
-			if v == nil {
-				log.Printf("%s not found in result", opts.Query)
-				return UNKNOWN
-			}
-			j2, _ := json.Marshal(v)
-			fmt.Println(string(j2))
-		}
-	} else {
-		fmt.Println(string(j))
+func outputMetrics(metrics map[string]interface{}, opts *commandOpts) error {
+	if opts.Query == "" {
+		v, _ := json.Marshal(metrics)
+		fmt.Println(string(v))
+		return nil
 	}
 
-	return OK
+	query, err := gojq.Parse(opts.Query)
+	if err != nil {
+		return err
+	}
+	iter := query.Run(metrics)
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			break
+		}
+		if err, ok := v.(error); ok {
+			return err
+		}
+		if v == nil {
+			return fmt.Errorf("%s not found in result", opts.Query)
+		}
+		j2, _ := json.Marshal(v)
+		fmt.Println(string(j2))
+	}
+
+	return nil
 }
