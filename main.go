@@ -33,6 +33,7 @@ import (
 	"github.com/sacloud/iaas-api-go"
 	"github.com/sacloud/iaas-api-go/helper/api"
 	"github.com/sacloud/iaas-api-go/search"
+	"github.com/sacloud/iaas-api-go/types"
 	"github.com/sacloud/sacloud-router-usage/version"
 )
 
@@ -43,6 +44,40 @@ const (
 	// CRITICAL = 2
 	// WARNING  = 1
 )
+
+func main() {
+	os.Exit(_main())
+}
+
+func _main() int {
+	opts, err := parseOpts()
+	if err != nil {
+		log.Println(err)
+		return UNKNOWN
+	}
+	if opts.Version {
+		printVersion()
+		return OK
+	}
+
+	client, err := routerClient()
+	if err != nil {
+		log.Println(err)
+		return UNKNOWN
+	}
+
+	metrics, err := fetchMetrics(client, opts)
+	if err != nil {
+		log.Println(err)
+		return UNKNOWN
+	}
+
+	if err := outputMetrics(metrics, opts); err != nil {
+		log.Println(err)
+		return UNKNOWN
+	}
+	return OK
+}
 
 type commandOpts struct {
 	Time          uint     `long:"time" description:"Get average traffic for a specified amount of time" default:"3"`
@@ -65,7 +100,7 @@ func round(f float64) int64 {
 	return int64(math.Round(f)) - 1
 }
 
-func routerClient() (iaas.InternetAPI, error) {
+func routerClient() (iaasRouterAPI, error) {
 	options := api.OptionsFromEnv()
 	if options.AccessToken == "" {
 		return nil, fmt.Errorf("environment variable %q is required", "SAKURACLOUD_ACCESS_TOKEN")
@@ -88,13 +123,18 @@ func routerClient() (iaas.InternetAPI, error) {
 	return iaas.NewInternetOp(caller), nil
 }
 
-type IaaSRouter struct {
+type iaaSRouter struct {
 	*iaas.Internet
 	Zone string
 }
 
-func findRouters(client iaas.InternetAPI, opts *commandOpts) ([]*IaaSRouter, error) {
-	var routers []*IaaSRouter
+type iaasRouterAPI interface {
+	Find(ctx context.Context, zone string, conditions *iaas.FindCondition) (*iaas.InternetFindResult, error)
+	MonitorRouter(ctx context.Context, zone string, id types.ID, condition *iaas.MonitorCondition) (*iaas.RouterActivity, error)
+}
+
+func findRouters(client iaasRouterAPI, opts *commandOpts) ([]*iaaSRouter, error) {
+	var routers []*iaaSRouter
 	for _, prefix := range opts.Prefix {
 		for _, zone := range opts.Zones {
 			condition := &iaas.FindCondition{
@@ -111,7 +151,7 @@ func findRouters(client iaas.InternetAPI, opts *commandOpts) ([]*IaaSRouter, err
 			}
 			for _, r := range result.Internet {
 				if strings.Index(r.Name, prefix) == 0 {
-					routers = append(routers, &IaaSRouter{Internet: r, Zone: zone})
+					routers = append(routers, &iaaSRouter{Internet: r, Zone: zone})
 				}
 			}
 		}
@@ -119,7 +159,7 @@ func findRouters(client iaas.InternetAPI, opts *commandOpts) ([]*IaaSRouter, err
 	return routers, nil
 }
 
-func fetchRouterMetrics(client iaas.InternetAPI, opts *commandOpts, ss []*IaaSRouter) (map[string]interface{}, error) {
+func fetchRouterMetrics(client iaasRouterAPI, opts *commandOpts, ss []*iaaSRouter) (map[string]interface{}, error) {
 	b, _ := time.ParseDuration(fmt.Sprintf("-%dm", (opts.Time+3)*5))
 	condition := &iaas.MonitorCondition{
 		Start: time.Now().Add(b),
@@ -215,34 +255,6 @@ Compiler: %s %s
 		runtime.Version())
 }
 
-func main() {
-	os.Exit(_main())
-}
-
-func _main() int {
-	opts, err := parseOpts()
-	if err != nil {
-		log.Println(err)
-		return UNKNOWN
-	}
-	if opts.Version {
-		printVersion()
-		return OK
-	}
-
-	metrics, err := fetchMetrics(opts)
-	if err != nil {
-		log.Println(err)
-		return UNKNOWN
-	}
-
-	if err := outputMetrics(metrics, opts); err != nil {
-		log.Println(err)
-		return UNKNOWN
-	}
-	return OK
-}
-
 func parseOpts() (*commandOpts, error) {
 	opts := &commandOpts{}
 	psr := flags.NewParser(opts, flags.HelpFlag|flags.PassDoubleDash)
@@ -288,12 +300,7 @@ func parseOpts() (*commandOpts, error) {
 	return opts, nil
 }
 
-func fetchMetrics(opts *commandOpts) (map[string]interface{}, error) {
-	client, err := routerClient()
-	if err != nil {
-		return nil, err
-	}
-
+func fetchMetrics(client iaasRouterAPI, opts *commandOpts) (map[string]interface{}, error) {
 	routers, err := findRouters(client, opts)
 	if err != nil {
 		return nil, err
