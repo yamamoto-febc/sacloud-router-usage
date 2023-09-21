@@ -289,7 +289,9 @@ func parseOpts() (*commandOpts, error) {
 	var percentiles []percentile
 	percentileStrings := strings.Split(opts.PercentileSet, ",")
 	for _, s := range percentileStrings {
-		// TODO PercentileSetが空の場合を考慮する
+		if s == "" {
+			continue
+		}
 		f, err := strconv.ParseFloat(s, 64)
 		if err != nil {
 			return nil, fmt.Errorf("could not parse --percentile-set: %v", err)
