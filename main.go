@@ -27,8 +27,8 @@ import (
 	"github.com/sacloud/iaas-api-go/helper/api"
 	"github.com/sacloud/iaas-api-go/search"
 	"github.com/sacloud/iaas-api-go/types"
-	"github.com/sacloud/sacloud-router-usage/usage"
 	"github.com/sacloud/sacloud-router-usage/version"
+	usage "github.com/sacloud/sacloud-usage-lib"
 )
 
 func main() {
@@ -44,7 +44,7 @@ func _main() int {
 		return usage.ExitUnknown
 	}
 	if opts.Version {
-		usage.PrintVersion()
+		usage.PrintVersion(version.Version)
 		return usage.ExitOk
 	}
 
@@ -83,7 +83,7 @@ func routerClient() (iaasRouterAPI, error) {
 
 	if options.UserAgent == "" {
 		options.UserAgent = fmt.Sprintf(
-			"sacloud/sacloud-router-uage/v%s (%s/%s; +https://github.com/sacloud/sacloud-router-uage) %s",
+			"sacloud/sacloud-router-uage/v%s (%s/%s; +https://github.com/sacloud/sacloud-router-usage) %s",
 			version.Version,
 			runtime.GOOS,
 			runtime.GOARCH,
