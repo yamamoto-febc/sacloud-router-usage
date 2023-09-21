@@ -1,4 +1,4 @@
-// Copyright 2022 The sacloud/sacloud-router-usage Authors
+// Copyright 2022-2023 The sacloud/sacloud-router-usage Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,10 +20,8 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math"
 	"os"
 	"runtime"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -67,13 +65,13 @@ func _main() int {
 		return UNKNOWN
 	}
 
-	metrics, err := fetchMetrics(client, opts)
+	resources, err := fetchResources(client, opts)
 	if err != nil {
 		log.Println(err)
 		return UNKNOWN
 	}
 
-	if err := outputMetrics(os.Stdout, metrics, opts.Query); err != nil {
+	if err := outputMetrics(os.Stdout, resources.toMetrics(opts.percentiles), opts.Query); err != nil {
 		log.Println(err)
 		return UNKNOWN
 	}
@@ -95,10 +93,6 @@ type commandOpts struct {
 type percentile struct {
 	str   string
 	float float64
-}
-
-func round(f float64) int64 {
-	return int64(math.Round(f)) - 1
 }
 
 func routerClient() (iaasRouterAPI, error) {
@@ -124,18 +118,13 @@ func routerClient() (iaasRouterAPI, error) {
 	return iaas.NewInternetOp(caller), nil
 }
 
-type iaaSRouter struct {
-	*iaas.Internet
-	Zone string
-}
-
 type iaasRouterAPI interface {
 	Find(ctx context.Context, zone string, conditions *iaas.FindCondition) (*iaas.InternetFindResult, error)
 	MonitorRouter(ctx context.Context, zone string, id types.ID, condition *iaas.MonitorCondition) (*iaas.RouterActivity, error)
 }
 
-func findRouters(client iaasRouterAPI, opts *commandOpts) ([]*iaaSRouter, error) {
-	var routers []*iaaSRouter
+func fetchResources(client iaasRouterAPI, opts *commandOpts) (*iaasResources, error) {
+	rs := &iaasResources{Label: "routers"}
 	for _, prefix := range opts.Prefix {
 		for _, zone := range opts.Zones {
 			condition := &iaas.FindCondition{
@@ -151,99 +140,54 @@ func findRouters(client iaasRouterAPI, opts *commandOpts) ([]*iaaSRouter, error)
 				return nil, err
 			}
 			for _, r := range result.Internet {
-				if strings.Index(r.Name, prefix) == 0 {
-					routers = append(routers, &iaaSRouter{Internet: r, Zone: zone})
+				if !strings.HasPrefix(r.Name, prefix) {
+					continue
 				}
+				monitors, err := fetchRouterActivities(client, zone, r.ID, opts)
+				if err != nil {
+					return nil, err
+				}
+				rs.Resources = append(rs.Resources, &iaasResource{
+					ID:             r.ID,
+					Name:           r.Name,
+					Zone:           zone,
+					Monitors:       monitors,
+					Label:          "traffic",
+					AdditionalInfo: nil,
+				})
 			}
 		}
 	}
-	return routers, nil
+	return rs, nil
 }
 
-func fetchRouterMetrics(client iaasRouterAPI, opts *commandOpts, ss []*iaaSRouter) (map[string]interface{}, error) {
+func fetchRouterActivities(client iaasRouterAPI, zone string, id types.ID, opts *commandOpts) ([]monitorValue, error) {
 	b, _ := time.ParseDuration(fmt.Sprintf("-%dm", (opts.Time+3)*5))
 	condition := &iaas.MonitorCondition{
 		Start: time.Now().Add(b),
 		End:   time.Now(),
 	}
-
-	valueFn := func(p *iaas.MonitorRouterValue) float64 {
-		return p.GetOut()
+	activity, err := client.MonitorRouter(context.Background(), zone, id, condition)
+	if err != nil {
+		return nil, err
 	}
-	if opts.Item == "in" {
-		valueFn = func(p *iaas.MonitorRouterValue) float64 {
-			return p.GetIn()
-		}
-	}
-
-	var fs sort.Float64Slice
-	routers := make([]interface{}, 0)
-	total := float64(0)
-	for _, t := range ss {
-		activity, err := client.MonitorRouter(
-			context.Background(),
-			t.Zone,
-			t.ID,
-			condition,
-		)
-		if err != nil {
-			return nil, err
-		}
-		usages := activity.GetValues()
-		if len(usages) == 0 {
-			continue
-		}
-		if len(usages) > int(opts.Time) {
-			usages = usages[len(usages)-int(opts.Time):]
-		}
-		sum := float64(0)
-		monitors := make([]interface{}, 0)
-		for _, p := range usages {
-			v := valueFn(p) / 1000 / 1000 // 単位変換: bps->Mbps
-			m := map[string]interface{}{
-				"traffic": v,
-				"time":    p.GetTime().String(),
-			}
-			monitors = append(monitors, m)
-			log.Printf("%s zone:%s traffic:%f time:%s", t.Name, t.Zone, v, p.GetTime().String())
-			sum += v
-		}
-		avg := sum / float64(len(usages))
-		log.Printf("%s average_traffic:%f", t.Name, avg)
-		fs = append(fs, avg)
-		total += avg
-
-		routers = append(routers, map[string]interface{}{
-			"name":     t.Name,
-			"zone":     t.Zone,
-			"avg":      avg,
-			"monitors": monitors,
-		})
+	usages := activity.GetValues()
+	if len(usages) > int(opts.Time) {
+		usages = usages[len(usages)-int(opts.Time):]
 	}
 
-	if len(fs) == 0 {
-		result := map[string]interface{}{}
-		result["max"] = float64(0)
-		result["avg"] = float64(0)
-		result["min"] = float64(0)
-		for _, p := range opts.percentiles {
-			result[fmt.Sprintf("%spt", p.str)] = float64(0)
+	var results []monitorValue
+	for _, usage := range usages {
+		v := usage.Out
+		if opts.Item == "in" {
+			v = usage.In
 		}
-		result["routers"] = routers
-		return result, nil
+		if v > 0 {
+			v = v / 1000 / 1000 // 単位変換: bps->Mbps
+		}
+		results = append(results, monitorValue{Time: usage.Time, Value: v})
 	}
-
-	sort.Sort(fs)
-	fl := float64(len(fs))
-	result := map[string]interface{}{}
-	result["max"] = fs[len(fs)-1]
-	result["avg"] = total / fl
-	result["min"] = fs[0]
-	for _, p := range opts.percentiles {
-		result[fmt.Sprintf("%spt", p.str)] = fs[round(fl*(p.float))]
-	}
-	result["routers"] = routers
-	return result, nil
+	return results, nil
 }
 
 func printVersion() {
@@ -302,15 +246,6 @@ func parseOpts() (*commandOpts, error) {
 	opts.percentiles = percentiles
 
 	return opts, nil
-}
-
-func fetchMetrics(client iaasRouterAPI, opts *commandOpts) (map[string]interface{}, error) {
-	routers, err := findRouters(client, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	return fetchRouterMetrics(client, opts, routers)
 }
 
 func outputMetrics(w io.Writer, metrics map[string]interface{}, query string) error {
