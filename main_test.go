@@ -491,7 +491,7 @@ func Test_outputMetrics(t *testing.T) {
 
 	type args struct {
 		metrics map[string]interface{}
-		opts    *commandOpts
+		query   string
 	}
 	tests := []struct {
 		name    string
@@ -509,12 +509,7 @@ func Test_outputMetrics(t *testing.T) {
 					"min":     4.,
 					"routers": []interface{}{},
 				},
-				opts: &commandOpts{
-					Time:        1,
-					Item:        "Out",
-					Query:       "",
-					percentiles: []percentile{{str: "90", float: 90}},
-				},
+				query: "",
 			},
 			wantW:   `{"90pt":1,"avg":2,"max":3,"min":4,"routers":[]}`,
 			wantErr: false,
@@ -529,12 +524,7 @@ func Test_outputMetrics(t *testing.T) {
 					"min":     4.,
 					"routers": []interface{}{},
 				},
-				opts: &commandOpts{
-					Time:        1,
-					Item:        "Out",
-					Query:       ".avg",
-					percentiles: []percentile{{str: "90", float: 90}},
-				},
+				query: ".avg",
 			},
 			wantW:   `2`,
 			wantErr: false,
@@ -549,12 +539,7 @@ func Test_outputMetrics(t *testing.T) {
 					"min":     4.,
 					"routers": []interface{}{},
 				},
-				opts: &commandOpts{
-					Time:        1,
-					Item:        "Out",
-					Query:       "invalid-query",
-					percentiles: []percentile{{str: "90", float: 90}},
-				},
+				query: "invalid-query",
 			},
 			wantW:   ``,
 			wantErr: true,
@@ -569,12 +554,7 @@ func Test_outputMetrics(t *testing.T) {
 					"min":     4.,
 					"routers": []interface{}{},
 				},
-				opts: &commandOpts{
-					Time:        1,
-					Item:        "Out",
-					Query:       ".not_exists",
-					percentiles: []percentile{{str: "90", float: 90}},
-				},
+				query: ".not_exists",
 			},
 			wantW:   ``,
 			wantErr: true,
@@ -583,7 +563,7 @@ func Test_outputMetrics(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := &bytes.Buffer{}
-			err := outputMetrics(w, tt.args.metrics, tt.args.opts)
+			err := outputMetrics(w, tt.args.metrics, tt.args.query)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("outputMetrics() error = %v, wantErr %v", err, tt.wantErr)
 				return

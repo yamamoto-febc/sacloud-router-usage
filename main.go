@@ -73,7 +73,7 @@ func _main() int {
 		return UNKNOWN
 	}
 
-	if err := outputMetrics(os.Stdout, metrics, opts); err != nil {
+	if err := outputMetrics(os.Stdout, metrics, opts.Query); err != nil {
 		log.Println(err)
 		return UNKNOWN
 	}
@@ -313,18 +313,18 @@ func fetchMetrics(client iaasRouterAPI, opts *commandOpts) (map[string]interface
 	return fetchRouterMetrics(client, opts, routers)
 }
 
-func outputMetrics(w io.Writer, metrics map[string]interface{}, opts *commandOpts) error {
-	if opts.Query == "" {
+func outputMetrics(w io.Writer, metrics map[string]interface{}, query string) error {
+	if query == "" {
 		v, _ := json.Marshal(metrics)
 		fmt.Fprintln(w, string(v))
 		return nil
 	}
 
-	query, err := gojq.Parse(opts.Query)
+	parsed, err := gojq.Parse(query)
 	if err != nil {
 		return err
 	}
-	iter := query.Run(metrics)
+	iter := parsed.Run(metrics)
 	for {
 		v, ok := iter.Next()
 		if !ok {
@@ -334,7 +334,7 @@ func outputMetrics(w io.Writer, metrics map[string]interface{}, opts *commandOpt
 			return err
 		}
 		if v == nil {
-			return fmt.Errorf("%s not found in result", opts.Query)
+			return fmt.Errorf("%s not found in result", query)
 		}
 		j2, _ := json.Marshal(v)
 		fmt.Fprintln(w, string(j2))
