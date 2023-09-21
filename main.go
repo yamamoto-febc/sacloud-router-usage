@@ -83,7 +83,7 @@ func routerClient() (iaasRouterAPI, error) {
 
 	if options.UserAgent == "" {
 		options.UserAgent = fmt.Sprintf(
-			"sacloud/sacloud-router-uage/v%s (%s/%s; +https://github.com/sacloud/sacloud-router-usage) %s",
+			"sacloud/sacloud-router-usage/v%s (%s/%s; +https://github.com/sacloud/sacloud-router-usage) %s",
 			version.Version,
 			runtime.GOOS,
 			runtime.GOARCH,
