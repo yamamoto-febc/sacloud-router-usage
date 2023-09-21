@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package usage
 
 import (
 	"io"
@@ -27,8 +27,7 @@ func Test_iaasResources_toMetrics(t *testing.T) {
 	log.SetOutput(io.Discard)
 
 	type args struct {
-		resources   *iaasResources
-		percentiles []percentile
+		resources *Resources
 	}
 	tests := []struct {
 		name string
@@ -38,8 +37,7 @@ func Test_iaasResources_toMetrics(t *testing.T) {
 		{
 			name: "empty",
 			args: args{
-				resources:   &iaasResources{Label: "routers"},
-				percentiles: []percentile{},
+				resources: &Resources{Label: "routers"},
 			},
 			want: map[string]interface{}{
 				"avg":     0.,
@@ -51,14 +49,14 @@ func Test_iaasResources_toMetrics(t *testing.T) {
 		{
 			name: "single resource - single value",
 			args: args{
-				resources: &iaasResources{
+				resources: &Resources{
 					Label: "routers",
-					Resources: []*iaasResource{
+					Resources: []*Resource{
 						{
 							ID:   1,
 							Name: "test1",
 							Zone: "is1a",
-							Monitors: []monitorValue{
+							Monitors: []MonitorValue{
 								{Time: time.Unix(1, 0), Value: 3},
 							},
 							Label:          "traffic",
@@ -66,7 +64,6 @@ func Test_iaasResources_toMetrics(t *testing.T) {
 						},
 					},
 				},
-				percentiles: []percentile{},
 			},
 			want: map[string]interface{}{
 				"avg": 3.,
@@ -90,27 +87,22 @@ func Test_iaasResources_toMetrics(t *testing.T) {
 		{
 			name: "with percentiles",
 			args: args{
-				resources: &iaasResources{
+				resources: &Resources{
 					Label: "routers",
-					Resources: []*iaasResource{
+					Resources: []*Resource{
 						{
 
 							ID:   1,
 							Name: "test1",
 							Zone: "is1a",
-							Monitors: []monitorValue{
+							Monitors: []MonitorValue{
 								{Time: time.Unix(1, 0), Value: 3},
 							},
 							Label:          "traffic",
 							AdditionalInfo: nil,
 						},
 					},
-				},
-				percentiles: []percentile{
-					{
-						str:   "90",
-						float: 0.9,
-					},
+					Option: &Option{percentiles: []percentile{{str: "90", float: 0.9}}},
 				},
 			},
 			want: map[string]interface{}{
@@ -136,14 +128,14 @@ func Test_iaasResources_toMetrics(t *testing.T) {
 		{
 			name: "single resource - multi values",
 			args: args{
-				resources: &iaasResources{
+				resources: &Resources{
 					Label: "routers",
-					Resources: []*iaasResource{
+					Resources: []*Resource{
 						{
 							ID:   1,
 							Name: "test1",
 							Zone: "is1a",
-							Monitors: []monitorValue{
+							Monitors: []MonitorValue{
 								{Time: time.Unix(1, 0), Value: 1},
 								{Time: time.Unix(2, 0), Value: 2},
 								{Time: time.Unix(3, 0), Value: 3},
@@ -153,7 +145,6 @@ func Test_iaasResources_toMetrics(t *testing.T) {
 						},
 					},
 				},
-				percentiles: []percentile{},
 			},
 			want: map[string]interface{}{
 				"avg": 2.,
@@ -185,14 +176,14 @@ func Test_iaasResources_toMetrics(t *testing.T) {
 		{
 			name: "multi resources - single value",
 			args: args{
-				resources: &iaasResources{
+				resources: &Resources{
 					Label: "routers",
-					Resources: []*iaasResource{
+					Resources: []*Resource{
 						{
 							ID:   1,
 							Name: "test1",
 							Zone: "is1a",
-							Monitors: []monitorValue{
+							Monitors: []MonitorValue{
 								{Time: time.Unix(3, 0), Value: 2},
 							},
 							Label:          "traffic",
@@ -202,7 +193,7 @@ func Test_iaasResources_toMetrics(t *testing.T) {
 							ID:   2,
 							Name: "test2",
 							Zone: "is1b",
-							Monitors: []monitorValue{
+							Monitors: []MonitorValue{
 								{Time: time.Unix(3, 0), Value: 4},
 							},
 							Label:          "traffic",
@@ -210,7 +201,6 @@ func Test_iaasResources_toMetrics(t *testing.T) {
 						},
 					},
 				},
-				percentiles: []percentile{},
 			},
 			want: map[string]interface{}{
 				"avg": 3.,
@@ -245,14 +235,14 @@ func Test_iaasResources_toMetrics(t *testing.T) {
 		{
 			name: "multi resources - multi values",
 			args: args{
-				resources: &iaasResources{
+				resources: &Resources{
 					Label: "routers",
-					Resources: []*iaasResource{
+					Resources: []*Resource{
 						{
 							ID:   1,
 							Name: "test1",
 							Zone: "is1a",
-							Monitors: []monitorValue{
+							Monitors: []MonitorValue{
 								{Time: time.Unix(1, 0), Value: 1},
 								{Time: time.Unix(2, 0), Value: 2},
 								{Time: time.Unix(3, 0), Value: 3},
@@ -264,7 +254,7 @@ func Test_iaasResources_toMetrics(t *testing.T) {
 							ID:   2,
 							Name: "test2",
 							Zone: "is1b",
-							Monitors: []monitorValue{
+							Monitors: []MonitorValue{
 								{Time: time.Unix(4, 0), Value: 4},
 								{Time: time.Unix(5, 0), Value: 5},
 								{Time: time.Unix(6, 0), Value: 6},
@@ -273,8 +263,8 @@ func Test_iaasResources_toMetrics(t *testing.T) {
 							AdditionalInfo: nil,
 						},
 					},
+					Option: &Option{percentiles: []percentile{{str: "90", float: 0.9}}},
 				},
-				percentiles: []percentile{{str: "90", float: 0.9}},
 			},
 			want: map[string]interface{}{
 				"avg":  3.5,
@@ -326,7 +316,7 @@ func Test_iaasResources_toMetrics(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.args.resources.toMetrics(tt.args.percentiles)
+			got := tt.args.resources.Metrics()
 			require.EqualValues(t, tt.want, got)
 		})
 	}

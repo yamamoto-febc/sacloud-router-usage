@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package usage
 
 import (
 	"fmt"
@@ -24,23 +24,23 @@ import (
 	"github.com/sacloud/iaas-api-go/types"
 )
 
-type monitorValue struct {
+type MonitorValue struct {
 	Time  time.Time
 	Value float64
 }
 
-type iaasResource struct {
+type Resource struct {
 	ID   types.ID
 	Name string
 	Zone string
 
-	Monitors []monitorValue
+	Monitors []MonitorValue
 	Label    string
 
 	AdditionalInfo map[string]interface{}
 }
 
-func (r *iaasResource) toMetrics() map[string]interface{} {
+func (r *Resource) toMetrics() map[string]interface{} {
 	sum := float64(0)
 	monitors := make([]interface{}, 0)
 	for _, p := range r.Monitors {
@@ -70,12 +70,13 @@ func (r *iaasResource) toMetrics() map[string]interface{} {
 	return metrics
 }
 
-type iaasResources struct {
-	Resources []*iaasResource
+type Resources struct {
+	Resources []*Resource
 	Label     string
+	Option    *Option
 }
 
-func (rs *iaasResources) toMetrics(percentiles []percentile) map[string]interface{} {
+func (rs *Resources) Metrics() map[string]interface{} {
 	var fs sort.Float64Slice
 	routers := make([]interface{}, 0)
 	total := float64(0)
@@ -94,8 +95,10 @@ func (rs *iaasResources) toMetrics(percentiles []percentile) map[string]interfac
 		result["max"] = float64(0)
 		result["avg"] = float64(0)
 		result["min"] = float64(0)
-		for _, p := range percentiles {
-			result[fmt.Sprintf("%spt", p.str)] = float64(0)
+		if rs.Option != nil {
+			for _, p := range rs.Option.percentiles {
+				result[fmt.Sprintf("%spt", p.str)] = float64(0)
+			}
 		}
 		result["routers"] = routers
 		return result
@@ -107,8 +110,10 @@ func (rs *iaasResources) toMetrics(percentiles []percentile) map[string]interfac
 	result["max"] = fs[len(fs)-1]
 	result["avg"] = total / fl
 	result["min"] = fs[0]
-	for _, p := range percentiles {
-		result[fmt.Sprintf("%spt", p.str)] = fs[round(fl*(p.float))]
+	if rs.Option != nil {
+		for _, p := range rs.Option.percentiles {
+			result[fmt.Sprintf("%spt", p.str)] = fs[round(fl*(p.float))]
+		}
 	}
 	result["routers"] = routers
 	return result

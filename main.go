@@ -16,32 +16,19 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/itchyny/gojq"
-	"github.com/jessevdk/go-flags"
-	"github.com/joho/godotenv"
 	"github.com/sacloud/iaas-api-go"
 	"github.com/sacloud/iaas-api-go/helper/api"
 	"github.com/sacloud/iaas-api-go/search"
 	"github.com/sacloud/iaas-api-go/types"
+	"github.com/sacloud/sacloud-router-usage/usage"
 	"github.com/sacloud/sacloud-router-usage/version"
-)
-
-const (
-	UNKNOWN = 3
-	OK      = 0
-
-	// CRITICAL = 2
-	// WARNING  = 1
 )
 
 func main() {
@@ -49,50 +36,40 @@ func main() {
 }
 
 func _main() int {
-	opts, err := parseOpts()
-	if err != nil {
+	opts := &commandOpts{
+		Option: &usage.Option{},
+	}
+	if err := usage.ParseOption(opts); err != nil {
 		log.Println(err)
-		return UNKNOWN
+		return usage.ExitUnknown
 	}
 	if opts.Version {
-		printVersion()
-		return OK
+		usage.PrintVersion()
+		return usage.ExitOk
 	}
 
 	client, err := routerClient()
 	if err != nil {
 		log.Println(err)
-		return UNKNOWN
+		return usage.ExitUnknown
 	}
 
 	resources, err := fetchResources(client, opts)
 	if err != nil {
 		log.Println(err)
-		return UNKNOWN
+		return usage.ExitUnknown
 	}
 
-	if err := outputMetrics(os.Stdout, resources.toMetrics(opts.percentiles), opts.Query); err != nil {
+	if err := usage.OutputMetrics(os.Stdout, resources.Metrics(), opts.Query); err != nil {
 		log.Println(err)
-		return UNKNOWN
+		return usage.ExitUnknown
 	}
-	return OK
+	return usage.ExitOk
 }
 
 type commandOpts struct {
-	Time          uint     `long:"time" description:"Get average traffic for a specified amount of time" default:"3"`
-	Item          string   `long:"item" description:"Item name" required:"true" choice:"in" choice:"out" default:"in"`
-	Prefix        []string `long:"prefix" description:"prefix for router names. prefix accepts more than one." required:"true"`
-	Zones         []string `long:"zone" description:"zone name" required:"true"`
-	PercentileSet string   `long:"percentile-set" default:"99,95,90,75" description:"percentiles to dispaly"`
-	Version       bool     `short:"v" long:"version" description:"Show version"`
-	Query         string   `long:"query" description:"jq style query to result and display"`
-	EnvFrom       string   `long:"env-from" description:"load environment values from this file"`
-	percentiles   []percentile
-}
-
-type percentile struct {
-	str   string
-	float float64
+	*usage.Option
+	Item string `long:"item" description:"Item name" required:"true" choice:"in" choice:"out" default:"in"`
 }
 
 func routerClient() (iaasRouterAPI, error) {
@@ -123,8 +100,8 @@ type iaasRouterAPI interface {
 	MonitorRouter(ctx context.Context, zone string, id types.ID, condition *iaas.MonitorCondition) (*iaas.RouterActivity, error)
 }
 
-func fetchResources(client iaasRouterAPI, opts *commandOpts) (*iaasResources, error) {
-	rs := &iaasResources{Label: "routers"}
+func fetchResources(client iaasRouterAPI, opts *commandOpts) (*usage.Resources, error) {
+	rs := &usage.Resources{Label: "routers", Option: opts.Option}
 	for _, prefix := range opts.Prefix {
 		for _, zone := range opts.Zones {
 			condition := &iaas.FindCondition{
@@ -147,7 +124,7 @@ func fetchResources(client iaasRouterAPI, opts *commandOpts) (*iaasResources, er
 				if err != nil {
 					return nil, err
 				}
-				rs.Resources = append(rs.Resources, &iaasResource{
+				rs.Resources = append(rs.Resources, &usage.Resource{
 					ID:             r.ID,
 					Name:           r.Name,
 					Zone:           zone,
@@ -161,7 +138,7 @@ func fetchResources(client iaasRouterAPI, opts *commandOpts) (*iaasResources, er
 	return rs, nil
 }
 
-func fetchRouterActivities(client iaasRouterAPI, zone string, id types.ID, opts *commandOpts) ([]monitorValue, error) {
+func fetchRouterActivities(client iaasRouterAPI, zone string, id types.ID, opts *commandOpts) ([]usage.MonitorValue, error) {
 	b, _ := time.ParseDuration(fmt.Sprintf("-%dm", (opts.Time+3)*5))
 	condition := &iaas.MonitorCondition{
 		Start: time.Now().Add(b),
@@ -176,104 +153,16 @@ func fetchRouterActivities(client iaasRouterAPI, zone string, id types.ID, opts 
 		usages = usages[len(usages)-int(opts.Time):]
 	}
 
-	var results []monitorValue
-	for _, usage := range usages {
-		v := usage.Out
+	var results []usage.MonitorValue
+	for _, u := range usages {
+		v := u.Out
 		if opts.Item == "in" {
-			v = usage.In
+			v = u.In
 		}
 		if v > 0 {
 			v = v / 1000 / 1000 // 単位変換: bps->Mbps
 		}
-		results = append(results, monitorValue{Time: usage.Time, Value: v})
+		results = append(results, usage.MonitorValue{Time: u.Time, Value: v})
 	}
 	return results, nil
-}
-
-func printVersion() {
-	fmt.Printf(`%s %s
-Compiler: %s %s
-`,
-		os.Args[0],
-		version.Version,
-		runtime.Compiler,
-		runtime.Version())
-}
-
-func parseOpts() (*commandOpts, error) {
-	opts := &commandOpts{}
-	psr := flags.NewParser(opts, flags.HelpFlag|flags.PassDoubleDash)
-	_, err := psr.Parse()
-	if opts.Version {
-		return opts, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	if opts.Time < 1 {
-		opts.Time = 1
-	}
-
-	if opts.EnvFrom != "" {
-		if err := godotenv.Load(opts.EnvFrom); err != nil {
-			return nil, err
-		}
-	}
-
-	m := make(map[string]struct{})
-	for _, z := range opts.Zones {
-		if _, ok := m[z]; ok {
-			return nil, fmt.Errorf("zone %q is duplicated", z)
-		}
-		m[z] = struct{}{}
-	}
-
-	var percentiles []percentile
-	percentileStrings := strings.Split(opts.PercentileSet, ",")
-	for _, s := range percentileStrings {
-		if s == "" {
-			continue
-		}
-		f, err := strconv.ParseFloat(s, 64)
-		if err != nil {
-			return nil, fmt.Errorf("could not parse --percentile-set: %v", err)
-		}
-		f /= 100
-		percentiles = append(percentiles, percentile{s, f})
-	}
-	opts.percentiles = percentiles
-
-	return opts, nil
-}
-
-func outputMetrics(w io.Writer, metrics map[string]interface{}, query string) error {
-	if query == "" {
-		v, _ := json.Marshal(metrics)
-		fmt.Fprintln(w, string(v))
-		return nil
-	}
-
-	parsed, err := gojq.Parse(query)
-	if err != nil {
-		return err
-	}
-	iter := parsed.Run(metrics)
-	for {
-		v, ok := iter.Next()
-		if !ok {
-			break
-		}
-		if err, ok := v.(error); ok {
-			return err
-		}
-		if v == nil {
-			return fmt.Errorf("%s not found in result", query)
-		}
-		j2, _ := json.Marshal(v)
-		fmt.Fprintln(w, string(j2))
-	}
-
-	return nil
 }
