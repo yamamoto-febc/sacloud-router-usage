@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"log"
@@ -483,4 +484,113 @@ func (s *stubIaasRouterAPI) MonitorRouter(_ context.Context, zone string, id typ
 	}
 
 	return s.activity[zone][id.String()], nil
+}
+
+func Test_outputMetrics(t *testing.T) {
+	log.SetOutput(io.Discard)
+
+	type args struct {
+		metrics map[string]interface{}
+		opts    *commandOpts
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantW   string
+		wantErr bool
+	}{
+		{
+			name: "without query",
+			args: args{
+				metrics: map[string]interface{}{
+					"90pt":    1.,
+					"avg":     2.,
+					"max":     3.,
+					"min":     4.,
+					"routers": []interface{}{},
+				},
+				opts: &commandOpts{
+					Time:        1,
+					Item:        "Out",
+					Query:       "",
+					percentiles: []percentile{{str: "90", float: 90}},
+				},
+			},
+			wantW:   `{"90pt":1,"avg":2,"max":3,"min":4,"routers":[]}`,
+			wantErr: false,
+		},
+		{
+			name: "with query",
+			args: args{
+				metrics: map[string]interface{}{
+					"90pt":    1.,
+					"avg":     2.,
+					"max":     3.,
+					"min":     4.,
+					"routers": []interface{}{},
+				},
+				opts: &commandOpts{
+					Time:        1,
+					Item:        "Out",
+					Query:       ".avg",
+					percentiles: []percentile{{str: "90", float: 90}},
+				},
+			},
+			wantW:   `2`,
+			wantErr: false,
+		},
+		{
+			name: "invalid query",
+			args: args{
+				metrics: map[string]interface{}{
+					"90pt":    1.,
+					"avg":     2.,
+					"max":     3.,
+					"min":     4.,
+					"routers": []interface{}{},
+				},
+				opts: &commandOpts{
+					Time:        1,
+					Item:        "Out",
+					Query:       "invalid-query",
+					percentiles: []percentile{{str: "90", float: 90}},
+				},
+			},
+			wantW:   ``,
+			wantErr: true,
+		},
+		{
+			name: "query returns no value",
+			args: args{
+				metrics: map[string]interface{}{
+					"90pt":    1.,
+					"avg":     2.,
+					"max":     3.,
+					"min":     4.,
+					"routers": []interface{}{},
+				},
+				opts: &commandOpts{
+					Time:        1,
+					Item:        "Out",
+					Query:       ".not_exists",
+					percentiles: []percentile{{str: "90", float: 90}},
+				},
+			},
+			wantW:   ``,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := &bytes.Buffer{}
+			err := outputMetrics(w, tt.args.metrics, tt.args.opts)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("outputMetrics() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err == nil {
+				require.Equal(t, tt.wantW+"\n", w.String())
+			}
+		})
+	}
 }

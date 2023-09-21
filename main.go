@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"os"
@@ -72,7 +73,7 @@ func _main() int {
 		return UNKNOWN
 	}
 
-	if err := outputMetrics(metrics, opts); err != nil {
+	if err := outputMetrics(os.Stdout, metrics, opts); err != nil {
 		log.Println(err)
 		return UNKNOWN
 	}
@@ -288,6 +289,7 @@ func parseOpts() (*commandOpts, error) {
 	var percentiles []percentile
 	percentileStrings := strings.Split(opts.PercentileSet, ",")
 	for _, s := range percentileStrings {
+		// TODO PercentileSetが空の場合を考慮する
 		f, err := strconv.ParseFloat(s, 64)
 		if err != nil {
 			return nil, fmt.Errorf("could not parse --percentile-set: %v", err)
@@ -309,10 +311,10 @@ func fetchMetrics(client iaasRouterAPI, opts *commandOpts) (map[string]interface
 	return fetchRouterMetrics(client, opts, routers)
 }
 
-func outputMetrics(metrics map[string]interface{}, opts *commandOpts) error {
+func outputMetrics(w io.Writer, metrics map[string]interface{}, opts *commandOpts) error {
 	if opts.Query == "" {
 		v, _ := json.Marshal(metrics)
-		fmt.Println(string(v))
+		fmt.Fprintln(w, string(v))
 		return nil
 	}
 
@@ -333,7 +335,7 @@ func outputMetrics(metrics map[string]interface{}, opts *commandOpts) error {
 			return fmt.Errorf("%s not found in result", opts.Query)
 		}
 		j2, _ := json.Marshal(v)
-		fmt.Println(string(j2))
+		fmt.Fprintln(w, string(j2))
 	}
 
 	return nil
