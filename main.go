@@ -19,12 +19,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"runtime"
 	"strings"
 	"time"
 
 	"github.com/sacloud/iaas-api-go"
-	"github.com/sacloud/iaas-api-go/helper/api"
 	"github.com/sacloud/iaas-api-go/search"
 	"github.com/sacloud/iaas-api-go/types"
 	"github.com/sacloud/sacloud-router-usage/version"
@@ -48,13 +46,13 @@ func _main() int {
 		return usage.ExitOk
 	}
 
-	client, err := routerClient()
+	caller, err := usage.SacloudAPICaller("sacloud-router-usage", version.Version)
 	if err != nil {
 		log.Println(err)
 		return usage.ExitUnknown
 	}
 
-	resources, err := fetchResources(client, opts)
+	resources, err := fetchResources(iaas.NewInternetOp(caller), opts)
 	if err != nil {
 		log.Println(err)
 		return usage.ExitUnknown
@@ -70,29 +68,6 @@ func _main() int {
 type commandOpts struct {
 	*usage.Option
 	Item string `long:"item" description:"Item name" required:"true" choice:"in" choice:"out" default:"in"`
-}
-
-func routerClient() (iaasRouterAPI, error) {
-	options := api.OptionsFromEnv()
-	if options.AccessToken == "" {
-		return nil, fmt.Errorf("environment variable %q is required", "SAKURACLOUD_ACCESS_TOKEN")
-	}
-	if options.AccessTokenSecret == "" {
-		return nil, fmt.Errorf("environment variable %q is required", "SAKURACLOUD_ACCESS_TOKEN_SECRET")
-	}
-
-	if options.UserAgent == "" {
-		options.UserAgent = fmt.Sprintf(
-			"sacloud/sacloud-router-usage/v%s (%s/%s; +https://github.com/sacloud/sacloud-router-usage) %s",
-			version.Version,
-			runtime.GOOS,
-			runtime.GOARCH,
-			iaas.DefaultUserAgent,
-		)
-	}
-
-	caller := api.NewCallerWithOptions(options)
-	return iaas.NewInternetOp(caller), nil
 }
 
 type iaasRouterAPI interface {
