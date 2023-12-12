@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/sacloud/iaas-api-go v1.11.2
-	github.com/sacloud/sacloud-usage-lib v0.0.4
+	github.com/sacloud/sacloud-usage-lib v0.0.5
 	github.com/stretchr/testify v1.8.4
 )
 
@@ -15,7 +15,7 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.5 // indirect
-	github.com/itchyny/gojq v0.12.13 // indirect
+	github.com/itchyny/gojq v0.12.14 // indirect
 	github.com/itchyny/timefmt-go v0.1.5 // indirect
 	github.com/jessevdk/go-flags v1.5.0 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
