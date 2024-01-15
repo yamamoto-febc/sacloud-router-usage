@@ -16,24 +16,46 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/sacloud/go-otelsetup"
 	"github.com/sacloud/iaas-api-go"
 	"github.com/sacloud/iaas-api-go/search"
 	"github.com/sacloud/iaas-api-go/types"
 	"github.com/sacloud/sacloud-router-usage/version"
 	usage "github.com/sacloud/sacloud-usage-lib"
+	"go.opentelemetry.io/otel"
 )
 
 func main() {
 	os.Exit(_main())
 }
 
+const appName = "github.com/sacloud/sacloud-router-usage"
+
 func _main() int {
+	// initialize OTel SDK
+	otelShutdown, err := otelsetup.Init(context.Background(), appName, version.Version)
+	if err != nil {
+		log.Println("Error in initializing OTel SDK: " + err.Error())
+		return usage.ExitUnknown
+	}
+	defer func() {
+		err = errors.Join(err, otelShutdown(context.Background()))
+		if err != nil {
+			log.Println("Error in initializing OTel SDK: " + err.Error())
+		}
+	}()
+
+	// init root span
+	ctx, span := otel.Tracer(appName).Start(otelsetup.ContextForTrace(context.Background()), "usage.main")
+	defer span.End()
+
 	opts := &commandOpts{
 		Option: &usage.Option{},
 	}
@@ -52,7 +74,7 @@ func _main() int {
 		return usage.ExitUnknown
 	}
 
-	resources, err := fetchResources(iaas.NewInternetOp(caller), opts)
+	resources, err := fetchResources(ctx, iaas.NewInternetOp(caller), opts)
 	if err != nil {
 		log.Println(err)
 		return usage.ExitUnknown
@@ -75,7 +97,10 @@ type iaasRouterAPI interface {
 	MonitorRouter(ctx context.Context, zone string, id types.ID, condition *iaas.MonitorCondition) (*iaas.RouterActivity, error)
 }
 
-func fetchResources(client iaasRouterAPI, opts *commandOpts) (*usage.Resources, error) {
+func fetchResources(ctx context.Context, client iaasRouterAPI, opts *commandOpts) (*usage.Resources, error) {
+	ctx, span := otel.Tracer(appName).Start(ctx, "usage.fetchResources")
+	defer span.End()
+
 	rs := &usage.Resources{Label: "routers", Option: opts.Option}
 	for _, prefix := range opts.Prefix {
 		for _, zone := range opts.Zones {
@@ -84,7 +109,7 @@ func fetchResources(client iaasRouterAPI, opts *commandOpts) (*usage.Resources, 
 			}
 			condition.Filter[search.Key("Name")] = search.PartialMatch(prefix)
 			result, err := client.Find(
-				context.Background(),
+				ctx,
 				zone,
 				condition,
 			)
@@ -95,7 +120,7 @@ func fetchResources(client iaasRouterAPI, opts *commandOpts) (*usage.Resources, 
 				if !strings.HasPrefix(r.Name, prefix) {
 					continue
 				}
-				monitors, err := fetchRouterActivities(client, zone, r.ID, opts)
+				monitors, err := fetchRouterActivities(ctx, client, zone, r.ID, opts)
 				if err != nil {
 					return nil, err
 				}
@@ -113,13 +138,16 @@ func fetchResources(client iaasRouterAPI, opts *commandOpts) (*usage.Resources, 
 	return rs, nil
 }
 
-func fetchRouterActivities(client iaasRouterAPI, zone string, id types.ID, opts *commandOpts) ([]usage.MonitorValue, error) {
+func fetchRouterActivities(ctx context.Context, client iaasRouterAPI, zone string, id types.ID, opts *commandOpts) ([]usage.MonitorValue, error) {
+	ctx, span := otel.Tracer(appName).Start(ctx, "usage.fetchRouterActivities")
+	defer span.End()
+
 	b, _ := time.ParseDuration(fmt.Sprintf("-%dm", (opts.Time+3)*5))
 	condition := &iaas.MonitorCondition{
 		Start: time.Now().Add(b),
 		End:   time.Now(),
 	}
-	activity, err := client.MonitorRouter(context.Background(), zone, id, condition)
+	activity, err := client.MonitorRouter(ctx, zone, id, condition)
 	if err != nil {
 		return nil, err
 	}
