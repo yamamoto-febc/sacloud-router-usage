@@ -40,7 +40,11 @@ const appName = "github.com/sacloud/sacloud-router-usage"
 
 func _main() int {
 	// initialize OTel SDK
-	otelShutdown, err := otelsetup.Init(context.Background(), appName, version.Version)
+	otelShutdown, err := otelsetup.InitWithOptions(context.Background(), otelsetup.Options{
+		ServiceName:      "sacloud-router-usage",
+		ServiceVersion:   version.Version,
+		ServiceNamespace: "sacloud",
+	})
 	if err != nil {
 		log.Println("Error in initializing OTel SDK: " + err.Error())
 		return usage.ExitUnknown
@@ -53,7 +57,7 @@ func _main() int {
 	}()
 
 	// init root span
-	ctx, span := otel.Tracer(appName).Start(otelsetup.ContextForTrace(context.Background()), "usage.main")
+	ctx, span := otel.Tracer(appName).Start(otelsetup.ContextForTrace(context.Background()), "main")
 	defer span.End()
 
 	opts := &commandOpts{
@@ -98,7 +102,7 @@ type iaasRouterAPI interface {
 }
 
 func fetchResources(ctx context.Context, client iaasRouterAPI, opts *commandOpts) (*usage.Resources, error) {
-	ctx, span := otel.Tracer(appName).Start(ctx, "usage.fetchResources")
+	ctx, span := otel.Tracer(appName).Start(ctx, "fetchResources")
 	defer span.End()
 
 	rs := &usage.Resources{Label: "routers", Option: opts.Option}
@@ -139,7 +143,7 @@ func fetchResources(ctx context.Context, client iaasRouterAPI, opts *commandOpts
 }
 
 func fetchRouterActivities(ctx context.Context, client iaasRouterAPI, zone string, id types.ID, opts *commandOpts) ([]usage.MonitorValue, error) {
-	ctx, span := otel.Tracer(appName).Start(ctx, "usage.fetchRouterActivities")
+	ctx, span := otel.Tracer(appName).Start(ctx, "fetchRouterActivities")
 	defer span.End()
 
 	b, _ := time.ParseDuration(fmt.Sprintf("-%dm", (opts.Time+3)*5))
