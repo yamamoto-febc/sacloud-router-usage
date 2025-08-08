@@ -156,8 +156,8 @@ func fetchRouterActivities(ctx context.Context, client iaasRouterAPI, zone strin
 		return nil, err
 	}
 	usages := activity.GetValues()
-	if len(usages) > int(opts.Time) {
-		usages = usages[len(usages)-int(opts.Time):]
+	if len(usages) > int(opts.Time) { //nolint:gosec
+		usages = usages[len(usages)-int(opts.Time):] //nolint:gosec
 	}
 
 	var results []usage.MonitorValue
