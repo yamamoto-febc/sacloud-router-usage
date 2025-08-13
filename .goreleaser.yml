@@ -1,3 +1,5 @@
+version: 2
+
 before:
   hooks:
     - go mod tidy
@@ -30,7 +32,7 @@ archives:
   - format: zip
     name_template: '{{ .ProjectName }}_{{ .Os }}-{{ .Arch }}'
 changelog:
-  skip: false
+  disable: false
   filters:
     exclude:
       - '^docs:'
@@ -48,7 +50,6 @@ signs:
       - "${signature}"
       - "--detach-sign"
       - "${artifact}"
-      -
 
 #release:
 #  draft: true
