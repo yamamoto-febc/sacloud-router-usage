@@ -33,7 +33,7 @@ import (
 )
 
 func main() {
-	// test
+	// test2
 	os.Exit(_main())
 }
 
