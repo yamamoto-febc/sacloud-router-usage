@@ -67,7 +67,7 @@ func _main() int {
 		log.Println(err)
 		return usage.ExitUnknown
 	}
-	if opts.Version {
+	if opts.Option.Version {
 		usage.PrintVersion(version.Version)
 		return usage.ExitOk
 	}
@@ -84,7 +84,7 @@ func _main() int {
 		return usage.ExitUnknown
 	}
 
-	if err := usage.OutputMetrics(os.Stdout, resources.Metrics(), opts.Query); err != nil {
+	if err := usage.OutputMetrics(os.Stdout, resources.Metrics(), opts.Option.Query); err != nil {
 		log.Println(err)
 		return usage.ExitUnknown
 	}
@@ -106,8 +106,8 @@ func fetchResources(ctx context.Context, client iaasRouterAPI, opts *commandOpts
 	defer span.End()
 
 	rs := &usage.Resources{Label: "routers", Option: opts.Option}
-	for _, prefix := range opts.Prefix {
-		for _, zone := range opts.Zones {
+	for _, prefix := range opts.Option.Prefix {
+		for _, zone := range opts.Option.Zones {
 			condition := &iaas.FindCondition{
 				Filter: map[search.FilterKey]interface{}{},
 			}
@@ -146,7 +146,7 @@ func fetchRouterActivities(ctx context.Context, client iaasRouterAPI, zone strin
 	ctx, span := otel.Tracer(appName).Start(ctx, "fetchRouterActivities")
 	defer span.End()
 
-	b, _ := time.ParseDuration(fmt.Sprintf("-%dm", (opts.Time+3)*5))
+	b, _ := time.ParseDuration(fmt.Sprintf("-%dm", (opts.Option.Time+3)*5))
 	condition := &iaas.MonitorCondition{
 		Start: time.Now().Add(b),
 		End:   time.Now(),
@@ -156,8 +156,8 @@ func fetchRouterActivities(ctx context.Context, client iaasRouterAPI, zone strin
 		return nil, err
 	}
 	usages := activity.GetValues()
-	if len(usages) > int(opts.Time) { //nolint:gosec
-		usages = usages[len(usages)-int(opts.Time):] //nolint:gosec
+	if len(usages) > int(opts.Option.Time) { //nolint:gosec
+		usages = usages[len(usages)-int(opts.Option.Time):] //nolint:gosec
 	}
 
 	var results []usage.MonitorValue
