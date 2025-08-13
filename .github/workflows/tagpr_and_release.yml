@@ -16,6 +16,7 @@ jobs:
     steps:
     - uses: actions/checkout@v5
     - uses: Songmu/tagpr@v1
+      id: tagpr
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Set up Go
